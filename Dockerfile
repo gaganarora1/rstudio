@@ -1,54 +1,30 @@
-FROM rocker/rstudio:latest
+FROM rocker/tidyverse:latest
 
-# Switch to root for installations
+# Stay as root
 USER root
 
-# Update and install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install PostgreSQL support
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     libpq-dev \
-    postgresql-client \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install R packages
-RUN R -e "install.packages(c( \
-    'DBI', \
-    'RPostgreSQL', \
-    'RPostgres', \
-    'rgoogleads', \
-    'readr', \
-    'dplyr', \
-    'tidyr', \
-    'httr', \
-    'jsonlite', \
-    'jose', \
-    'ggplot2' \
-    ), repos='https://cran.rstudio.com/')"
+RUN install2.r --error \
+    RPostgreSQL \
+    RPostgres \
+    DBI
 
-# Create a test script
-RUN echo '#!/usr/bin/env Rscript\n\
-library(DBI)\n\
-library(RPostgreSQL)\n\
-cat("RPostgreSQL successfully installed!\\n")\n\
-cat("Version:", packageVersion("RPostgreSQL"), "\\n")' > /usr/local/bin/test_postgres.R
+# Set permissions
+RUN chown -R rstudio:rstudio /home/rstudio && \
+    chmod -R 755 /home/rstudio
 
-RUN chmod +x /usr/local/bin/test_postgres.R
+# Environment variables for Railway
+ENV DISABLE_AUTH=true
+ENV ROOT=FALSE
+ENV USER=rstudio
 
-# Set environment variables for Railway PostgreSQL connection
-ENV DB_HOST=switchyard.proxy.rlwy.net \
-    DB_PORT=57686 \
-    DB_NAME=railway \
-    DB_USER=rest_api_user \
-    DB_PASSWORD=Goquestdb123
-
-# Switch back to rstudio user
-USER rstudio
-
-WORKDIR /home/rstudio
-
-# Expose RStudio port
 EXPOSE 8787
 
 CMD ["/init"]
